@@ -116,6 +116,11 @@ dotnet test  VoltSense.sln -c Release --no-build # MUST: 53/53 pass
 
 > ⚠️ Use the **Internal** URL (not External) when the API is also on
 > Render — internal traffic stays inside Render's network and is faster.
+>
+> The API auto-normalises URL-form connection strings
+> (`postgres://user:pass@host:port/db`) to the keyword form Npgsql
+> requires — no manual conversion needed if you switch to the URL
+> later. See `Backend/src/VoltSense.Infrastructure/Persistence/ConnectionStringNormalizer.cs`.
 
 ### 3.2 Test the connection (optional but recommended)
 

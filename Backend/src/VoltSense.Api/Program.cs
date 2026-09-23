@@ -28,8 +28,17 @@ builder.Host.UseSerilog((ctx, cfg) =>
 // ---------------------------------------------------------------------------
 // Persistence
 // ---------------------------------------------------------------------------
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-if (string.IsNullOrWhiteSpace(connectionString))
+// Read the raw connection string, then normalise to the keyword/value form
+// Npgsql / EF Core require. Render's `fromService` blueprint directive
+// injects URL-form (`postgres://user:pass@host:port/db`); Heroku / Fly
+// attachments often do the same. The legacy `DbConnectionOptions`
+// parser that the EF migration history probe runs through rejects URLs
+// at index 0 with `Format of the initialization string does not
+// conform to specification starting at index 0`. Keyword-form input
+// (local `appsettings.json`, docker-compose, dev env vars) is forwarded
+// unchanged.
+var rawConnectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(rawConnectionString))
 {
     Log.Logger = new LoggerConfiguration()
         .WriteTo.Console()
@@ -40,6 +49,9 @@ if (string.IsNullOrWhiteSpace(connectionString))
         "(ConnectionStrings__DefaultConnection), or 'dotnet user-secrets'.");
     return;
 }
+
+var connectionString = ConnectionStringNormalizer.Normalize(rawConnectionString)
+    ?? rawConnectionString;
 
 builder.Services.AddDbContext<VoltSenseDbContext>(options =>
     options.UseNpgsql(connectionString));
