@@ -58,10 +58,17 @@ COPY src/ src/
 # Apply the restored NuGet packages from the previous stage via a copy-from.
 COPY --from=restore /src/src src/
 
+# NOTE: We deliberately drop `--no-restore` here. The previous version
+# of this stage used `--no-restore` for speed, but Render's BuildKit
+# cache-mount occasionally holds a partially-extracted package (network
+# blip during restore in a prior deploy), and `--no-restore` then trips
+# `NETSDK1064: Package X was not found` because the assets file
+# references a package whose `.nupkg` is missing from the cache.
+# Letting build perform an incremental restore here re-validates the
+# cache and self-heals in ~1–2 seconds on warm cache.
 RUN --mount=type=cache,target=/root/.nuget/packages \
     dotnet build src/VoltSense.Api/VoltSense.Api.csproj \
         -c Release \
-        --no-restore \
         /p:UseAppHost=false
 
 
@@ -71,11 +78,14 @@ RUN --mount=type=cache,target=/root/.nuget/packages \
 FROM build AS publish
 WORKDIR /src
 
+# `--no-build` is safe here because the previous stage just produced
+# the Release build artefact in `obj/`. `--no-restore` would also be
+# safe in isolation, but kept as-is because the build stage has
+# already self-healed the cache if needed.
 RUN --mount=type=cache,target=/root/.nuget/packages \
     dotnet publish src/VoltSense.Api/VoltSense.Api.csproj \
         -c Release \
         -o /app/publish \
-        --no-restore \
         --no-build \
         /p:UseAppHost=false \
         /p:PublishTrimmed=false \
