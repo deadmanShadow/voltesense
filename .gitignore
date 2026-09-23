@@ -80,3 +80,8 @@ $RECYCLE.BIN/
 .claude/settings.local.json
 .aider*
 .continue
+
+# Node / npm scratch (used only for one-off YAML linting)
+node_modules/
+package.json
+package-lock.json

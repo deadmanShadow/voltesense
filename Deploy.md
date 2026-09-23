@@ -7,6 +7,23 @@
 
 ---
 
+## ⚡ TL;DR — One-click deploy with `render.yaml`
+
+A Render **blueprint** file (`render.yaml`) is committed at the repo
+root. Deploy the entire stack (PostgreSQL + Web Service + secret
+wiring) in **one click**:
+
+1. Push the repo to GitHub.
+2. Render dashboard → **New + → Blueprint**.
+3. Pick the `voltesense` repo.
+4. Click **Apply**.
+
+That's it. Render provisions both services, generates the connection
+string, and starts building. Read on for the manual walk-through if
+you want to understand each step.
+
+---
+
 ## 0. What "Free on Render" actually means
 
 Render Free tier gives you:
