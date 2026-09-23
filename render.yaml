@@ -1,0 +1,89 @@
+# ============================================================================
+# VoltSense — render.yaml (Render Infrastructure-as-Code)
+# ----------------------------------------------------------------------------
+# This file lets you deploy the ENTIRE stack (Web Service + PostgreSQL +
+# secret generation + env-var wiring) with ONE click from the Render
+# dashboard:
+#
+#   Blueprint → New Blueprint Instance → select this repo → Apply
+#
+# Or from the CLI:
+#
+#   render blueprint launch
+#
+# Render reads this file, provisions the resources in order, generates
+# secrets, injects environment variables (including the DB connection
+# string from the database into the web service), and starts building.
+#
+# Cost: 100% on Render's FREE plan (web service sleeps after 15 min idle;
+# Postgres 1 GB / 30-day expiry).
+# ============================================================================
+
+services:
+
+  # -----------------------------------------------------------------------
+  # PostgreSQL — Free plan
+  # -----------------------------------------------------------------------
+  - type: pserv
+    name: voltsense-db
+    runtime: image
+    image: postgres:16-alpine
+    plan: free
+    region: oregon
+    envVars:
+      - key: POSTGRES_USER
+        value: voltsense
+      - key: POSTGRES_PASSWORD
+        value: voltsense_dev_only                # free-tier local password
+      - key: POSTGRES_DB
+        value: voltsense
+    # No `port` declared = Render doesn't expose it; the web service
+    # reaches it via the private network using the auto-generated
+    # `voltsense-db` hostname.
+
+  # -----------------------------------------------------------------------
+  # Web Service — VoltSense API
+  # -----------------------------------------------------------------------
+  - type: web
+    name: voltsense-api
+    runtime: docker
+    plan: free
+    region: oregon
+    rootDir: Backend                            # where the Dockerfile lives
+    branch: main
+    autoDeploy: true                            # rebuild on every push
+    healthCheckPath: /health
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    envVars:
+
+      # --- ASP.NET Core -----------------------------------------------
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://0.0.0.0:10000             # Render expects port 10000
+      - key: DOTNET_RUNNING_IN_CONTAINER
+        value: "true"
+      - key: DOTNET_NOLOGO
+        value: "true"
+      - key: DOTNET_CLI_TELEMETRY_OPTOUT
+        value: "true"
+
+      # --- Database ---------------------------------------------------
+      - key: Database__AutoMigrate
+        value: "true"
+
+      # fromService: Render auto-injects the database connection string
+      # with `fromService` + `property: connectionString`. The double-
+      # underscore syntax is .NET's env-var-to-config convention.
+      - key: ConnectionStrings__DefaultConnection
+        fromService:
+          type: pserv
+          name: voltsense-db
+          property: connectionString
+
+      # --- Monitoring config (PRD defaults) ----------------------------
+      - key: Monitoring__IntervalSeconds
+        value: "5"
+      - key: Monitoring__RetentionDays
+        value: "30"

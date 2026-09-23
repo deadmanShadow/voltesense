@@ -1,0 +1,135 @@
+# ============================================================================
+# VoltSense — docker-compose.yml
+# ----------------------------------------------------------------------------
+# Local development stack: API + PostgreSQL + an optional psql helper.
+#
+# Usage:
+#   # Build & start everything in the background
+#   docker compose up -d --build
+#
+#   # Tail logs
+#   docker compose logs -f api
+#
+#   # Stop & remove (data volume is preserved)
+#   docker compose down
+#
+#   # Stop & remove (data volume deleted too)
+#   docker compose down -v
+#
+#   # Run migrations explicitly (auto-migrate is also on at startup)
+#   docker compose run --rm migrate
+# ============================================================================
+
+services:
+
+  # -----------------------------------------------------------------------
+  # PostgreSQL 16 (official, alpine)
+  # -----------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    container_name: voltsense-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     voltsense
+      POSTGRES_PASSWORD: voltsense_dev_only         # local-only; production uses Render env vars
+      POSTGRES_DB:       voltsense
+      PGDATA: /var/lib/postgresql/data/pgdata       # named-volume-friendly path
+    volumes:
+      - voltsense_pgdata:/var/lib/postgresql/data
+    ports:
+      # Only expose on localhost — never 0.0.0.0 — so the DB is reachable
+      # from the host (e.g. psql / pgAdmin) without leaking on the LAN.
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U voltsense -d voltsense
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - voltsense-net
+
+  # -----------------------------------------------------------------------
+  # VoltSense API
+  # -----------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: voltsense-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT:                 Development
+      ASPNETCORE_URLS:                        http://+:10000
+      # Double-underscore: .NET reads nested config keys from env vars
+      ConnectionStrings__DefaultConnection:    "Host=db;Port=5432;Database=voltsense;Username=voltsense;Password=voltsense_dev_only"
+      Database__AutoMigrate:                  "true"
+      Monitoring__IntervalSeconds:            "5"
+      Monitoring__RetentionDays:              "30"
+      # Quieter logs in dev (still structured):
+      Logging__LogLevel__Default:             "Information"
+      Logging__LogLevel__Microsoft:           "Warning"
+      Logging__LogLevel__Microsoft.AspNetCore: "Warning"
+      Serilog__MinimumLevel__Default:         "Information"
+      Serilog__MinimumLevel__Override__Microsoft:        "Warning"
+      Serilog__MinimumLevel__Override__Microsoft.EntityFrameworkCore: "Warning"
+    ports:
+      - "127.0.0.1:10000:10000"
+    # Distroless/chiseled images have no shell, so we cannot declare a
+    # HEALTHCHECK inside the Dockerfile. docker-compose lets us declare it
+    # here using a TCP probe instead.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          (echo > /dev/tcp/127.0.0.1/10000) >/dev/null 2>&1 || exit 1
+        # Note: the line above only works if /dev/tcp is available.
+        # If your container doesn't support it, switch to:
+        #   wget -qO- http://127.0.0.1:10000/health || exit 1
+        # (requires the wget variant, not chiseled).
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - voltsense-net
+
+  # -----------------------------------------------------------------------
+  # Optional: one-shot helper to run EF migrations manually if you want to
+  # disable Database__AutoMigrate.
+  # -----------------------------------------------------------------------
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: voltsense-migrate
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=voltsense;Username=voltsense;Password=voltsense_dev_only"
+    entrypoint:
+      - dotnet
+      - /app/VoltSense.Api.dll
+      # The API will auto-migrate on startup; this profile exists so you can
+      # disable DB auto-migration in `api` and run this instead.
+    profiles: ["tools"]
+    networks:
+      - voltsense-net
+
+# ============================================================================
+# Volumes & networks
+# ============================================================================
+volumes:
+  voltsense_pgdata:
+    name: voltsense_pgdata
+
+networks:
+  voltsense-net:
+    name: voltsense-net
+    driver: bridge
