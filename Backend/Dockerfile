@@ -91,10 +91,9 @@ RUN --mount=type=cache,target=/root/.nuget/packages \
 # IMPORTANT: For .NET 10, the chiseled variant is Ubuntu-based (`noble`),
 # NOT alpine-based — Microsoft's `dotnet/aspnet:10.0-alpine-chiseled`
 # tag does not exist. Alpine-chiseled only ships from .NET 9 onwards.
-# If the chiseled tag is unavailable for some reason, build falls back
-# to plain alpine (slightly larger but still slim).
-ARG RUNTIME_BASE=mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled
-FROM ${RUNTIME_BASE} AS runtime
+# If `10.0-noble-chiseled` ever goes away, swap to `10.0-alpine`
+# (still slim, non-root, but ships a shell — slightly larger).
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled AS runtime
 
 # OCI labels — picked up by `docker inspect`, image registries, Render,
 # Railway, Fly, etc.
