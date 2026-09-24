@@ -1,77 +1,10 @@
-# ============================================================================
-# VoltSense — Backend .dockerignore
-# ----------------------------------------------------------------------------
-# Tells Docker which paths to EXCLUDE from the build context. Smaller context
-# = faster builds, smaller images, fewer accidental leaks (secrets, build
-# output, IDE noise).
-#
-# This file is loaded by `docker build` automatically when present in the
-# build context root.
-# ============================================================================
-
-# ---- Build artefacts (rebuilt inside the image) -------------------------
 **/bin/
 **/obj/
-**/out/
-**/publish/
-**/artifacts/
 **/.vs/
-**/.idea/
 **/.vscode/
 **/*.user
-**/*.suo
-**/*.userosscache
-**/*.userprefs
-**/*.sln.docstates
-
-# ---- Local secrets / connection strings (NEVER bake into image) ----------
-# appsettings.Development.json holds a local Postgres password.
-**/appsettings.Development.json
-**/secrets.json
-**/appsettings.Local.json
-**/*.pfx
-**/*.p12
-**/*.key
-**/.env
-**/.env.*
-
-# ---- Tests (we don't ship them in the runtime image) --------------------
-tests/
-**/*Tests/
-**/*Test/
-
-# ---- Local DB / migration scratch ---------------------------------------
-**/*.mdf
-**/*.ldf
-**/*.ndf
-**/*.bak
-**/*.trn
-
-# ---- VCS / git noise ----------------------------------------------------
-**/.git/
+**/.git
 **/.gitignore
-**/.gitattributes
-**/.github/
-**/.gitlab-ci.yml
-
-# ---- Documentation we don't need in the image ---------------------------
-**/*.md
-**/*.txt
-**/*.pdf
-**/LICENSE
-**/README*
-**/CHANGELOG*
-
-# ---- OS / Editor noise --------------------------------------------------
-**/.DS_Store
-**/Thumbs.db
-**/*.swp
-**/*.swo
-**/*~
-
-# ---- NuGet / restore cache (re-derived inside the image) -----------------
-**/packages/
-**/*.nupkg
-**/*.snupkg
-**/nuget.exe
-**/.nuget/
+**/tests/
+appsettings.Development.json
+*.md

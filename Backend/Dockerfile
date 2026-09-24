@@ -1,144 +1,47 @@
-# syntax=docker/dockerfile:1.7
-# ============================================================================
-# VoltSense — Backend Dockerfile
-# ----------------------------------------------------------------------------
-# Multi-stage build:
-#   1. restore      — restore NuGet packages (cached independently of source)
-#   2. build        — compile the solution
-#   3. publish      — produce a self-contained, Release-mode app
-#   4. runtime      — slim ASP.NET image that runs as a non-root user
-#
-# Build:
-#   docker build -t voltsense-api -f Backend/Dockerfile Backend
-#
-# Run:
-#   docker run --rm -p 10000:10000 \
-#     -e ConnectionStrings__DefaultConnection="Host=db;..." \
-#     -e ASPNETCORE_URLS=http://+:10000 \
-#     voltsense-api
-#
-# Notes:
-#   - Targets .NET 10 (LTS).
-#   - Runs as the built-in non-root `app` user (uid 1000).
-#   - Uses the official Microsoft "chiseled" base for the smallest attack
-#     surface and ~5× smaller image vs. the full runtime image.
-# ============================================================================
+# ============================================================
+# Backend/Dockerfile
+# Multi-stage build: SDK for building, slim ASP.NET runtime for running.
+# MUST: never ship the SDK image to production — it's ~3x larger than needed.
+# Target framework: net10.0 (matches src/VoltSense.Api/VoltSense.Api.csproj).
+# ============================================================
 
-
-# ---------------------------------------------------------------------------
-# Stage 1 — restore
-# ---------------------------------------------------------------------------
-# Cached separately so source-only changes don't re-download every package.
-FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS restore
-WORKDIR /src
-
-# Copy ONLY the project files first so the layer cache holds restore output
-# whenever only source files change.
-COPY src/VoltSense.Domain/VoltSense.Domain.csproj                 src/VoltSense.Domain/
-COPY src/VoltSense.Application/VoltSense.Application.csproj       src/VoltSense.Application/
-COPY src/VoltSense.Infrastructure/VoltSense.Infrastructure.csproj src/VoltSense.Infrastructure/
-COPY src/VoltSense.Api/VoltSense.Api.csproj                       src/VoltSense.Api/
-
-RUN --mount=type=cache,target=/root/.nuget/packages \
-    dotnet restore src/VoltSense.Api/VoltSense.Api.csproj \
-        --runtime linux-musl-x64 \
-        /p:RestoreUseStaticGraphEvaluation=true
-
-
-# ---------------------------------------------------------------------------
-# Stage 2 — build
-# ---------------------------------------------------------------------------
+# ---------- Stage 1: Build ----------
 FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 WORKDIR /src
 
-# Copy the rest of the source. The project files were copied above so this
-# layer invalidates whenever any source file changes.
+# Copy only project files first — enables Docker layer caching for `dotnet restore`
+# (source code changes won't invalidate this layer, so restore isn't re-run every build)
+COPY VoltSense.sln ./
+COPY src/VoltSense.Domain/VoltSense.Domain.csproj src/VoltSense.Domain/
+COPY src/VoltSense.Application/VoltSense.Application.csproj src/VoltSense.Application/
+COPY src/VoltSense.Infrastructure/VoltSense.Infrastructure.csproj src/VoltSense.Infrastructure/
+COPY src/VoltSense.Api/VoltSense.Api.csproj src/VoltSense.Api/
+
+RUN dotnet restore src/VoltSense.Api/VoltSense.Api.csproj
+
+# Now copy the rest of the source and publish
 COPY src/ src/
+RUN dotnet publish src/VoltSense.Api/VoltSense.Api.csproj \
+    -c Release \
+    -o /app/publish \
+    --no-restore \
+    /p:UseAppHost=false
 
-# Apply the restored NuGet packages from the previous stage via a copy-from.
-COPY --from=restore /src/src src/
-
-# NOTE: We deliberately drop `--no-restore` here. The previous version
-# of this stage used `--no-restore` for speed, but Render's BuildKit
-# cache-mount occasionally holds a partially-extracted package (network
-# blip during restore in a prior deploy), and `--no-restore` then trips
-# `NETSDK1064: Package X was not found` because the assets file
-# references a package whose `.nupkg` is missing from the cache.
-# Letting build perform an incremental restore here re-validates the
-# cache and self-heals in ~1–2 seconds on warm cache.
-RUN --mount=type=cache,target=/root/.nuget/packages \
-    dotnet build src/VoltSense.Api/VoltSense.Api.csproj \
-        -c Release \
-        /p:UseAppHost=false
-
-
-# ---------------------------------------------------------------------------
-# Stage 3 — publish
-# ---------------------------------------------------------------------------
-FROM build AS publish
-WORKDIR /src
-
-# `--no-build` is safe here because the previous stage just produced
-# the Release build artefact in `obj/`. `--no-restore` would also be
-# safe in isolation, but kept as-is because the build stage has
-# already self-healed the cache if needed.
-RUN --mount=type=cache,target=/root/.nuget/packages \
-    dotnet publish src/VoltSense.Api/VoltSense.Api.csproj \
-        -c Release \
-        -o /app/publish \
-        --no-build \
-        /p:UseAppHost=false \
-        /p:PublishTrimmed=false \
-        /p:PublishSingleFile=false
-
-
-# ---------------------------------------------------------------------------
-# Stage 4 — runtime
-# ---------------------------------------------------------------------------
-# Use the chiseled ASP.NET runtime image: no shell, no package manager,
-# non-root by default — minimal CVE surface.
-#
-# IMPORTANT: For .NET 10, the chiseled variant is Ubuntu-based (`noble`),
-# NOT alpine-based — Microsoft's `dotnet/aspnet:10.0-alpine-chiseled`
-# tag does not exist. Alpine-chiseled only ships from .NET 9 onwards.
-# If `10.0-noble-chiseled` ever goes away, swap to `10.0-alpine`
-# (still slim, non-root, but ships a shell — slightly larger).
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled AS runtime
-
-# OCI labels — picked up by `docker inspect`, image registries, Render,
-# Railway, Fly, etc.
-LABEL org.opencontainers.image.title="VoltSense API" \
-      org.opencontainers.image.description="Read-only UPS monitoring backend (ASP.NET Core 10)" \
-      org.opencontainers.image.source="https://github.com/deadmanShadow/voltesense" \
-      org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.vendor="VoltSense" \
-      org.opencontainers.image.authors="VoltSense Contributors"
-
-# The chiseled image ships as the built-in non-root `app` user (uid 1000).
-# We don't need USER directive; the image's default is already non-root.
+# ---------- Stage 2: Runtime ----------
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
 WORKDIR /app
 
-# Copy the published artefacts from the publish stage.
-COPY --from=publish --chown=app:app /app/publish .
+# MUST — never run the container as root in production
+RUN addgroup -S voltsense && adduser -S voltsense -G voltsense
+USER voltsense
 
-# Render/Railway/Fly all default to port 10000 in production. Bind on the
-# wildcard address so the container listens on all interfaces inside its
-# network namespace.
-ENV ASPNETCORE_URLS=http://+:10000 \
-    ASPNETCORE_ENVIRONMENT=Production \
-    DOTNET_RUNNING_IN_CONTAINER=true \
-    DOTNET_NOLOGO=true \
-    DOTNET_CLI_TELEMETRY_OPTOUT=true \
-    DOTNET_gcServer=0 \
-    DOTNET_GCConserveMemory=5 \
-    DOTNET_EnableDiagnostics=0
+COPY --from=build --chown=voltsense:voltsense /app/publish .
 
-EXPOSE 10000
+# Render (and most container platforms) inject a $PORT env var at runtime.
+# Default to 8080 for local `docker run` / docker-compose use.
+ENV ASPNETCORE_ENVIRONMENT=Production
+ENV DOTNET_RUNNING_IN_CONTAINER=true
+ENV PORT=8080
+EXPOSE 8080
 
-# HEALTHCHECK against the /health endpoint that Program.cs maps.
-# Note: chiseled images have no curl/wget — use a small .NET probe or rely
-# on the orchestrator's httpGet probe. We omit HEALTHCHECK here and let
-# docker-compose / Render define their own probe.
-#
-# ENTRYPOINT runs the published assembly directly.
-ENTRYPOINT ["dotnet", "VoltSense.Api.dll"]
+ENTRYPOINT ["/bin/sh", "-c", "ASPNETCORE_URLS=http://+:${PORT} dotnet VoltSense.Api.dll"]

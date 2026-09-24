@@ -1,0 +1,44 @@
+# docker-compose.yml — VoltSense/ (project root)
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: voltsense-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: voltsense
+      POSTGRES_USER: voltsense_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-voltsense_local_pw}
+    ports:
+      - "5432:5432"
+    volumes:
+      - voltsense-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U voltsense_user -d voltsense"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: voltsense-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__DefaultConnection: >-
+        Host=postgres;Port=5432;Database=voltsense;Username=voltsense_user;Password=${POSTGRES_PASSWORD:-voltsense_local_pw}
+      Monitoring__IntervalSeconds: 5
+      Monitoring__RetentionDays: 30
+      PORT: 8080
+    ports:
+      - "5279:8080"
+    # Note: USB HID device access from inside a Linux container requires the host to
+    # expose the device and the provider to target Linux (future LinuxUpsProvider, PRD §39).
+    # For the Windows-HID MVP provider, run `dotnet run` directly on the host instead of Docker
+    # if you need real UPS detection during local development.
+
+volumes:
+  voltsense-db-data:
