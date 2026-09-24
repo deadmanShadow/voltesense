@@ -110,7 +110,7 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(CorsPolicies.LocalFrontend, policy =>
-        policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
+        policy.WithOrigins("http://localhost:5173", "https://voltesense.vercel.app")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials());
