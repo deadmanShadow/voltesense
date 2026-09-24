@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { DashboardPage } from "@/features/dashboard/DashboardPage";
 
 /**
  * Root component — wires the two top-level providers required by the app:
@@ -7,12 +8,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
  *      history fetches). Configured once here, hooks consume via useQuery/useMutation.
  *   2. BrowserRouter — client-side routing for Dashboard / History / Settings / About.
  *
- * MUST — frontend.md §13 (Phase 12).
- *
- * NOTE: Routing children (DashboardPage, etc.) are added in Phase 9.
- * For now we ship a minimal placeholder so the app compiles cleanly after
- * Phase 1–3. Subsequent phases will replace the placeholder `<main>` block
- * with the real <AppShell /> + route tree.
+ * MUST — frontend.md §13 (Phase 12 will replace the `<main>` wrapper with the
+ * proper `<AppShell />` + side nav; the route table below is the eventual shape).
  */
 
 const queryClient = new QueryClient({
@@ -35,17 +32,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Routes>
-          {/* Placeholder — replaced by <AppShell /> in Phase 12. */}
-          <Route
-            path="*"
-            element={
-              <main className="flex min-h-screen items-center justify-center p-6 text-sm text-muted-foreground">
-                VoltSense — initializing…
-              </main>
-            }
-          />
-        </Routes>
+        <main className="min-h-screen bg-background text-foreground">
+          {/* Phase 12 will wrap this in <AppShell /> with sidebar nav. */}
+          <Routes>
+            <Route index element={<DashboardPage />} />
+          </Routes>
+        </main>
       </BrowserRouter>
     </QueryClientProvider>
   );
