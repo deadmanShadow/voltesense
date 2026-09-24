@@ -17,7 +17,7 @@
  * `useLiveTelemetry`).
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { HubConnection, HubConnectionState as SignalRInternalState } from "@microsoft/signalr";
+import type { HubConnection } from "@microsoft/signalr";
 import { createUpsHubConnection } from "@/services/signalrService";
 
 /** High-level connection states the UI cares about. */
@@ -26,24 +26,6 @@ export type HubConnectionState =
   | "connected"
   | "reconnecting"
   | "disconnected";
-
-/** Map SignalR's internal state names to our public, narrower union. */
-function projectState(internal: SignalRInternalState): HubConnectionState {
-  switch (internal) {
-    case "Connected":
-      return "connected";
-    case "Connecting":
-    case "Negotiating":
-      return "connecting";
-    case "Reconnecting":
-      return "reconnecting";
-    case "Disconnected":
-      return "disconnected";
-    default:
-      // Defensive default — SignalR may add new internal states in future.
-      return "disconnected";
-  }
-}
 
 export interface UseSignalRConnectionResult {
   /** Stable connection reference (null only during the very first render). */
@@ -70,14 +52,12 @@ export function useSignalRConnection(): UseSignalRConnectionResult {
     connectionRef.current = connection;
 
     // Wire lifecycle callbacks BEFORE starting the connection.
-    const onConnecting = () => setState("connecting");
-    const onReconnecting = () => setState("reconnecting");
-    const onReconnected = () => setState("connected");
-    const onClosed = () => setState("disconnected");
-
-    connection.onreconnecting(onReconnecting);
-    connection.onreconnected(onReconnected);
-    connection.onclose(onClosed);
+    // SignalR's `onreconnecting` / `onreconnected` / `onclose` are *setters*
+    // (not add/remove), so re-assignment on unmount is not how you detach.
+    // We rely on `connection.stop()` to release everything for cleanup.
+    connection.onreconnecting(() => setState("reconnecting"));
+    connection.onreconnected(() => setState("connected"));
+    connection.onclose(() => setState("disconnected"));
 
     let cancelled = false;
     connection
@@ -101,9 +81,6 @@ export function useSignalRConnection(): UseSignalRConnectionResult {
 
     return () => {
       cancelled = true;
-      connection.offreconnecting(onReconnecting);
-      connection.offreconnected(onReconnected);
-      connection.offclose(onClosed);
 
       // Stop is fire-and-forget; we don't need to await it in cleanup.
       void connection.stop();
@@ -111,7 +88,7 @@ export function useSignalRConnection(): UseSignalRConnectionResult {
       // Allow another mount (e.g. after remount in dev) to actually start.
       startedRef.current = false;
       connectionRef.current = null;
-      onConnecting(); // not strictly needed but keeps state deterministic
+      setState("disconnected");
     };
   }, []);
 

@@ -6,7 +6,6 @@
  * 100–250V depending on grid. We use Recharts' `connectNulls={false}` so
  * a missing datapoint never bridges to a neighbouring reading.
  */
-import { ChartFrame, type ChartPoint } from "./ChartFrame";
 import {
   CartesianGrid,
   Legend,
@@ -19,6 +18,7 @@ import {
 } from "recharts";
 import type { Telemetry } from "@/types/telemetry";
 import { formatClockTime } from "@/lib/formatters";
+import type { ChartPoint } from "./ChartFrame";
 
 function toPoints(data: Telemetry[]): ChartPoint[] {
   return data.map((d) => ({

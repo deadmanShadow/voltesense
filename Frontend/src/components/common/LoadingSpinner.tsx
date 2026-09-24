@@ -5,7 +5,6 @@
  * by full-page states that aren't skeletons (the Settings page during
  * a config fetch, for example).
  */
-import * as React from "react";
 import { cn } from "@/lib/utils";
 
 export interface LoadingSpinnerProps {

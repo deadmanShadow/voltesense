@@ -81,7 +81,10 @@ $RECYCLE.BIN/
 .aider*
 .continue
 
-# Node / npm scratch (used only for one-off YAML linting)
+# Node / npm
 node_modules/
-package.json
-package-lock.json
+
+# Vite build output (frontend)
+Frontend/dist/
+Frontend/coverage/
+*.tsbuildinfo

@@ -8,20 +8,23 @@
  *
  * We expose the live device's `id` so a curious user can correlate it
  * with backend logs without having to ask.
+ *
+ * Accessibility note — We use a flat list of labelled <div>s rather than
+ * <dl>/<dt>/<dd> (separators aren't allowed as direct children of <dl>
+ * per the WAI-ARIA spec).
  */
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrentUps } from "@/features/ups/hooks/useCurrentUps";
 import { EmptyState } from "@/components/common/EmptyState";
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 py-2 text-sm">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="truncate font-mono text-xs text-foreground" title={value}>
+    <div className="flex items-baseline justify-between gap-4 border-b border-border py-2 text-sm last:border-b-0">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="truncate font-mono text-xs text-foreground" title={value}>
         {value}
-      </dd>
+      </span>
     </div>
   );
 }
@@ -57,19 +60,14 @@ export function SettingsPage() {
           <CardTitle>Device</CardTitle>
         </CardHeader>
         <CardContent>
-          <dl>
+          <div>
             <Field label="Manufacturer" value={device.manufacturer || "Unknown"} />
-            <Separator />
             <Field label="Model" value={device.model || "Unknown"} />
-            <Separator />
             <Field label="Connection" value={device.connectionType || "Unknown"} />
-            <Separator />
             <Field label="Firmware" value={device.firmwareVersion ?? "Unavailable"} />
-            <Separator />
             <Field label="Device ID" value={device.id} />
-            <Separator />
             <Field label="Active" value={device.isActive ? "Yes" : "No"} />
-          </dl>
+          </div>
         </CardContent>
       </Card>
 

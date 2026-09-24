@@ -35,7 +35,7 @@ function defaultRange(): DateRange {
 }
 
 export function HistoryPage() {
-  const { data: device, isLoading: deviceLoading, isNoDevice } = useCurrentUps();
+  const { device, isLoading: deviceLoading, isNoDevice } = useCurrentUps();
   const [range, setRange] = useState<DateRange>(defaultRange);
 
   const history = useTelemetryHistory({
@@ -71,7 +71,7 @@ export function HistoryPage() {
     return (
       <EmptyState
         title="Invalid range"
-        description="Pick a \"From\" date earlier than \"To\" and try again."
+        description={'Pick a "From" date earlier than "To" and try again.'}
         action={
           <Button variant="outline" size="sm" onClick={() => setRange(defaultRange())}>
             Reset to last 24h
