@@ -15,6 +15,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { makeQueryClient, QueryProvider } from "@/test/testUtils";
+import { ApiError } from "@/services/apiClient";
 import type { UpsDevice } from "@/types/ups";
 
 // --- Hoisted mocks ---------------------------------------------------------
@@ -124,13 +125,13 @@ describe("DashboardPage — four UI states", () => {
     });
   });
 
-  it("renders the 'Unable to read UPS telemetry' EmptyState on transport error", async () => {
-    // We supply a non-null device so we don't fall into the "no device"
-    // branch (DashboardPage checks isNoDevice/device === null before
-    // checking error). The error then takes precedence and renders the
-    // "Unable to read UPS telemetry" empty state.
+  it("renders the 'Unable to read UPS telemetry' EmptyState on transport error (takes precedence over no-device)", async () => {
+    // Real-world scenario: the backend is unreachable. The query never
+    // resolves, so `device` is null AND `error` is set. The error branch
+    // MUST fire before the no-device branch — otherwise the user would see
+    // "Plug in a UPS" when the real problem is "the backend isn't running".
     mocks.useCurrentUpsResult = {
-      device: fakeDevice,
+      device: null,
       isLoading: false,
       isNoDevice: false,
       error: new Error("Connection refused"),
@@ -143,6 +144,27 @@ describe("DashboardPage — four UI states", () => {
       expect(
         screen.getByText(/Unable to read UPS telemetry/i),
       ).toBeInTheDocument();
+    });
+    // Crucially, the no-device message must NOT also be present.
+    expect(screen.queryByText("No UPS detected")).not.toBeInTheDocument();
+  });
+
+  it("shows a network-specific hint when the failure looks like a network outage", async () => {
+    // apiClient throws `new ApiError(0, ...)` for transport-level failures;
+    // status 0 makes ApiError.isNetworkLike return true.
+    const networkErr = new ApiError(0, "fetch failed");
+    mocks.useCurrentUpsResult = {
+      device: null,
+      isLoading: false,
+      isNoDevice: false,
+      error: networkErr,
+      refetch: () => undefined,
+      dataUpdatedAt: 0,
+    };
+
+    renderWithClient(<DashboardPage />);
+    await waitFor(() => {
+      expect(screen.getByText(/couldn't reach the backend/i)).toBeInTheDocument();
     });
   });
 

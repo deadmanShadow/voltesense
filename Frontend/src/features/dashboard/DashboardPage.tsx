@@ -29,6 +29,7 @@
 import { useSignalRConnection } from "@/hooks/useSignalRConnection";
 import { useLiveTelemetry } from "./hooks/useLiveTelemetry";
 import { useCurrentUps } from "@/features/ups/hooks/useCurrentUps";
+import { ApiError } from "@/services/apiClient";
 import { UpsHeader } from "./components/UpsHeader";
 import { BatteryCard } from "./components/BatteryCard";
 import { StatusCard } from "./components/StatusCard";
@@ -64,13 +65,24 @@ export function DashboardPage() {
   }
 
   // ------------------------------------------------------------------
-  // State 2: UNSUPPORTED (backend returned 404 — "No UPS detected")
+  // State 3: ERROR (transport failure / 5xx — backend unreachable OR
+  // backend returned something other than 404). MUST be checked BEFORE
+  // the no-device branch: when the backend is down the query never
+  // resolves, so `device === null` is also true, and we don't want to
+  // misleadingly show "Plug in a UPS" when the real problem is "the
+  // backend isn't reachable".
   // ------------------------------------------------------------------
-  if (isNoDevice || device === null) {
+  if (error) {
+    const isNetwork = ApiError.isNetworkLike(error);
     return (
       <EmptyState
-        title="No UPS detected"
-        description="Plug in a supported UPS to start monitoring. VoltSense will pick it up automatically."
+        title="Unable to read UPS telemetry"
+        description={
+          isNetwork
+            ? "VoltSense couldn't reach the backend. Make sure the API is still running on http://localhost:5279."
+            : error.message ||
+              "The backend reported an unexpected error. Check the server logs and try again."
+        }
         action={
           <Button variant="outline" size="sm" onClick={() => void refetch()}>
             Retry
@@ -81,17 +93,15 @@ export function DashboardPage() {
   }
 
   // ------------------------------------------------------------------
-  // State 3: ERROR (transport failure / 5xx — backend reachable but
-  // something else is wrong)
+  // State 2: UNSUPPORTED (backend returned 404 — "No UPS detected").
+  // Checked AFTER error so a network outage never masquerades as a
+  // missing UPS.
   // ------------------------------------------------------------------
-  if (error) {
+  if (isNoDevice || device === null) {
     return (
       <EmptyState
-        title="Unable to read UPS telemetry"
-        description={
-          error.message ||
-          "The backend reported an unexpected error. Check the server logs and try again."
-        }
+        title="No UPS detected"
+        description="Plug in a supported UPS to start monitoring. VoltSense will pick it up automatically."
         action={
           <Button variant="outline" size="sm" onClick={() => void refetch()}>
             Retry
