@@ -105,12 +105,22 @@ export function DashboardPage() {
   // State 4: CONNECTED — render the grid.
   // ------------------------------------------------------------------
   const t = live.telemetry;
-  const onMains =
-    live.status === "Online" || live.status === "Charging" || live.status === null;
+
+  // RuntimeCard shows "On mains" only when:
+  //   - We have a positive `isUpsConnected` signal from the backend, AND
+  //   - The UPS reports an online/charging status (or hasn't reported yet,
+  //     in which case we assume mains; the status card will already flag
+  //     a "Disconnected" / "LowBattery" if the backend has spoken).
+  // When the backend has *not* confirmed the UPS is connected we show
+  // "Unavailable" so the user knows we can't trust a number.
+  const backendSaysConnected = live.isUpsConnected;
+  const statusSaysOnline =
+    live.status === "Online" || live.status === "Charging";
+  const onMains = backendSaysConnected && (statusSaysOnline || live.status === null);
 
   return (
     <div>
-      <UpsHeader device={device} isConnected={live.isUpsConnected} />
+      <UpsHeader device={device} />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <BatteryCard chargePercent={t?.batteryCharge ?? null} status={live.status} />
         <StatusCard status={live.status} />

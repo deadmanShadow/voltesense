@@ -1,16 +1,28 @@
+/**
+ * Root component — MUST (frontend.md §13, Phase 12).
+ *
+ * Top-level providers + the full route tree:
+ *   - QueryClientProvider — React Query
+ *   - BrowserRouter        — react-router
+ *   - AppShell layout      — sidebar nav + top bar (Persistent across routes)
+ *   - Routes:
+ *       /         → DashboardPage
+ *       /history  → HistoryPage
+ *       /settings → SettingsPage
+ *       /about    → AboutPage
+ *       *         → EmptyState "Not found"
+ *
+ * The route table matches the doc exactly.
+ */
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { DashboardPage } from "@/features/dashboard/DashboardPage";
 
-/**
- * Root component — wires the two top-level providers required by the app:
- *   1. QueryClientProvider — React Query for all server state (current UPS,
- *      history fetches). Configured once here, hooks consume via useQuery/useMutation.
- *   2. BrowserRouter — client-side routing for Dashboard / History / Settings / About.
- *
- * MUST — frontend.md §13 (Phase 12 will replace the `<main>` wrapper with the
- * proper `<AppShell />` + side nav; the route table below is the eventual shape).
- */
+import { AppShell } from "@/components/layout/AppShell";
+import { DashboardPage } from "@/features/dashboard/DashboardPage";
+import { HistoryPage } from "@/features/history/HistoryPage";
+import { SettingsPage } from "@/features/settings/SettingsPage";
+import { AboutPage } from "@/pages/AboutPage";
+import { EmptyState } from "@/components/common/EmptyState";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,16 +40,28 @@ const queryClient = new QueryClient({
   },
 });
 
+function NotFound() {
+  return (
+    <EmptyState
+      title="Page not found"
+      description="The page you tried to open does not exist. Use the sidebar to navigate."
+    />
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <main className="min-h-screen bg-background text-foreground">
-          {/* Phase 12 will wrap this in <AppShell /> with sidebar nav. */}
-          <Routes>
+        <Routes>
+          <Route element={<AppShell />}>
             <Route index element={<DashboardPage />} />
-          </Routes>
-        </main>
+            <Route path="history" element={<HistoryPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+            <Route path="about" element={<AboutPage />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
       </BrowserRouter>
     </QueryClientProvider>
   );
