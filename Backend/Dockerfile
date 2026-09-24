@@ -28,8 +28,11 @@ RUN dotnet publish src/VoltSense.Api/VoltSense.Api.csproj \
     /p:UseAppHost=false
 
 # ---------- Stage 2: Runtime ----------
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS runtime
 WORKDIR /app
+
+# 🆕 Npgsql-এর SSL/GSSAPI negotiation-এর জন্য দরকার — Alpine-এ ডিফল্টভাবে থাকে না
+RUN apk add --no-cache icu-libs krb5-libs
 
 # MUST — never run the container as root in production
 RUN addgroup -S voltsense && adduser -S voltsense -G voltsense
@@ -37,8 +40,6 @@ USER voltsense
 
 COPY --from=build --chown=voltsense:voltsense /app/publish .
 
-# Render (and most container platforms) inject a $PORT env var at runtime.
-# Default to 8080 for local `docker run` / docker-compose use.
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV DOTNET_RUNNING_IN_CONTAINER=true
 ENV PORT=8080
