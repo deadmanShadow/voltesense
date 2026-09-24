@@ -21,9 +21,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog((ctx, cfg) =>
     cfg.ReadFrom.Configuration(ctx.Configuration)
        .Enrich.FromLogContext()
-       .Enrich.WithProperty("Application", "VoltSense.Api")
-       .Enrich.WithProperty("MachineName", Environment.MachineName)
-       .WriteTo.Console());
+       .Enrich.WithProperty("MachineName", Environment.MachineName));
 
 // ---------------------------------------------------------------------------
 // Persistence
@@ -163,8 +161,8 @@ app.UseSerilogRequestLogging(o =>
         "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms";
 });
 
-app.UseCors(CorsPolicies.LocalFrontend);
 app.UseRouting();
+app.UseCors(CorsPolicies.LocalFrontend);
 app.UseAuthorization();
 
 app.MapControllers();
