@@ -1,5 +1,5 @@
 /**
- * DashboardPage — MUST (frontend.md §10, §14).
+ * DashboardPage — MUST (frontend.md §10, §14, changesFrontend.md §6).
  *
  * Wires three hooks together:
  *   - useSignalRConnection  → HubConnection lifecycle
@@ -15,17 +15,14 @@
  *   | Error          | useCurrentUps.error (non-404)                 | <EmptyState title="Unable to read…">|
  *   | Connected      | realtime telemetry arriving (any state)       | <UpsHeader/> + 6-card grid          |
  *
- * "Connected" is the only state where the cards are *active*. When the
- * SignalR connection is healthy but no telemetry has arrived yet (cold
- * start), the cards still render — fields fall through to "Unavailable"
- * because `Telemetry | null` means every formatter returns "Unavailable".
- * That is the intended PRD §29 behaviour.
- *
- * NOTE — The page consumes `useCurrentUps.error` *and* `useCurrentUps.isNoDevice`
- * as separate signals. That separation is what lets a refresh-pill show
- * "Searching" during a refetch after a transient error, rather than
- * flashing "No UPS detected" → "Searching" → "Unable to read" repeatedly.
+ * Migration additions (changesFrontend.md §6, Phase 6):
+ *   - A `useEffect` watches the existing `state` from
+ *     `useSignalRConnection` and surfaces `toast.warning` /
+ *     `toast.success` so the user sees "Reconnecting…" / "Reconnected"
+ *     toasts. The hook is unchanged; only the UI now acknowledges its
+ *     state changes. No new signal is introduced.
  */
+import { useEffect, useRef } from "react";
 import { useSignalRConnection } from "@/hooks/useSignalRConnection";
 import { useLiveTelemetry } from "./hooks/useLiveTelemetry";
 import { useCurrentUps } from "@/features/ups/hooks/useCurrentUps";
@@ -40,13 +37,31 @@ import { DeviceInfoCard } from "./components/DeviceInfoCard";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 const SKELETON_TILES = 6;
 
 export function DashboardPage() {
-  const { connection } = useSignalRConnection();
+  const { connection, state } = useSignalRConnection();
   const live = useLiveTelemetry(connection);
   const { device, isLoading, isNoDevice, error, refetch } = useCurrentUps();
+
+  // Presentation-only: surface connection state changes as a toast.
+  // Reads the existing `state` from the unchanged hook — no new logic
+  // introduced. We track the previous value in a ref so the effect only
+  // fires on actual transitions.
+  const prevState = useRef(state);
+  useEffect(() => {
+    if (prevState.current !== state) {
+      if (state === "reconnecting") {
+        toast.warning("Reconnecting to VoltSense backend…");
+      }
+      if (state === "connected" && prevState.current === "reconnecting") {
+        toast.success("Reconnected");
+      }
+      prevState.current = state;
+    }
+  }, [state]);
 
   // ------------------------------------------------------------------
   // State 1: SEARCHING (initial load from useCurrentUps in-flight)

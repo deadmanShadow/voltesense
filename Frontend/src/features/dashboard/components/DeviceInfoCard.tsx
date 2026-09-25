@@ -5,12 +5,18 @@
  * see the manufacturer / model / firmware without grepping logs. Pure
  * presentational.
  *
+ * Migration notes (changesFrontend.md §6):
+ *   - Added a lucide `Cpu` icon to the header (matches the changesFrontend
+ *     suggested icon table for DeviceInfoCard).
+ *   - All existing props and rows unchanged.
+ *
  * Accessibility note — We use a flat list of labelled <div>s rather than
  * <dl>/<dt>/<dd>, because the WAI-ARIA spec disallows `role="separator"`
  * as a direct child of <dl>. Wrapping each row in a <div> also keeps the
  * layout simpler (no need to interleave separators).
  */
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Cpu } from "lucide-react";
 import { UNAVAILABLE_LABEL } from "@/lib/formatters";
 import type { UpsDevice } from "@/types/ups";
 
@@ -32,8 +38,9 @@ function Row({ label, value }: { label: string; value: string }) {
 export function DeviceInfoCard({ device }: DeviceInfoCardProps) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Device</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">Device</CardTitle>
+        <Cpu className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
         {device ? (

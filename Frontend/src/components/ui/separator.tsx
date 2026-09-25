@@ -9,13 +9,13 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-export function Separator({
-  className,
-  orientation = "horizontal",
-  ...props
-}: React.HTMLAttributes<HTMLDivElement> & { orientation?: "horizontal" | "vertical" }) {
+export const Separator = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & { orientation?: "horizontal" | "vertical" }
+>(function Separator({ className, orientation = "horizontal", ...props }, ref) {
   return (
     <div
+      ref={ref}
       role="separator"
       aria-orientation={orientation}
       className={cn(
@@ -26,4 +26,4 @@ export function Separator({
       {...props}
     />
   );
-}
+});

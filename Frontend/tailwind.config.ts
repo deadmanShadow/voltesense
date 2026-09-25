@@ -46,16 +46,27 @@ const config: Config = {
           foreground: "hsl(var(--card-foreground))",
         },
         success: {
-          DEFAULT: "hsl(142 71% 45%)",
-          foreground: "hsl(0 0% 100%)",
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
         },
         warning: {
-          DEFAULT: "hsl(38 92% 50%)",
-          foreground: "hsl(0 0% 100%)",
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
         },
         danger: {
           DEFAULT: "hsl(0 84% 60%)",
           foreground: "hsl(0 0% 100%)",
+        },
+        // shadcn sidebar block tokens — bound to CSS variables in index.css.
+        sidebar: {
+          DEFAULT: "hsl(var(--sidebar-background))",
+          foreground: "hsl(var(--sidebar-foreground))",
+          primary: "hsl(var(--sidebar-primary))",
+          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
+          accent: "hsl(var(--sidebar-accent))",
+          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
+          border: "hsl(var(--sidebar-border))",
+          ring: "hsl(var(--sidebar-ring))",
         },
       },
       borderRadius: {
@@ -79,7 +90,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [require("tailwindcss-animate")],
 };
 
 export default config;

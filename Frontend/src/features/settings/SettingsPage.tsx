@@ -1,20 +1,21 @@
 /**
- * SettingsPage — MUST (frontend.md §12, PRD §31).
+ * SettingsPage — MUST (frontend.md §12, PRD §31, changesFrontend.md §8).
  *
  * Read-only by design: VoltSense never exposes UPS *control* settings
  * (shutdown / restart / self-test) — that's the core "monitor-only"
  * promise of the project. Anything configurable is server-side
  * (`appsettings.json`) and we explicitly document that here.
  *
- * We expose the live device's `id` so a curious user can correlate it
- * with backend logs without having to ask.
- *
- * Accessibility note — We use a flat list of labelled <div>s rather than
- * <dl>/<dt>/<dd> (separators aren't allowed as direct children of <dl>
- * per the WAI-ARIA spec).
+ * Migration notes (changesFrontend.md §8):
+ *   - Added a `CardDescription` slot to the header card (shadcn pattern).
+ *   - The "Read-only by design" callout uses shadcn `Alert` instead of
+ *     a free-form paragraph block.
+ *   - Data fetching (`useCurrentUps`) and rendered rows are unchanged.
  */
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ShieldCheck } from "lucide-react";
 import { useCurrentUps } from "@/features/ups/hooks/useCurrentUps";
 import { EmptyState } from "@/components/common/EmptyState";
 
@@ -58,6 +59,7 @@ export function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Device</CardTitle>
+          <CardDescription>Per-device metadata reported by the UPS.</CardDescription>
         </CardHeader>
         <CardContent>
           <div>
@@ -71,23 +73,22 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>About this page</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted-foreground">
-          <p>
-            VoltSense never offers shutdown, restart, or self-test controls. UPS
-            behaviour is configured at the hardware level; software controls are
-            intentionally out of scope.
+      <Alert>
+        <ShieldCheck className="h-4 w-4" />
+        <AlertTitle>Read-only by design</AlertTitle>
+        <AlertDescription>
+          <p className="mb-2">
+            VoltSense never offers shutdown, restart, or self-test controls.
+            UPS behaviour is configured at the hardware level; software
+            controls are intentionally out of scope.
           </p>
           <p>
             To change polling interval or telemetry retention, edit
             <code className="mx-1 rounded bg-muted px-1">appsettings.json</code>
             on the backend and restart the service.
           </p>
-        </CardContent>
-      </Card>
+        </AlertDescription>
+      </Alert>
     </div>
   );
 }

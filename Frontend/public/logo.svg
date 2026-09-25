@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <!-- Battery body -->
+  <path d="M 110 60
+           L 110 40
+           L 180 40
+           L 180 60
+           L 290 60
+           L 290 350
+           L 110 350
+           Z"
+        fill="none"
+        stroke="#39FF14"
+        stroke-width="8"
+        stroke-linejoin="round"
+        stroke-linecap="round"/>
+
+  <!-- Lightning bolt -->
+  <path d="M 215 120
+           L 160 210
+           L 200 210
+           L 175 290
+           L 245 195
+           L 205 195
+           L 230 120
+           Z"
+        fill="#39FF14"
+        stroke="#39FF14"
+        stroke-width="4"
+        stroke-linejoin="round"/>
+</svg>
